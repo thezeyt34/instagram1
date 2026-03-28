@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Reels{% endblock %}
+
+{% block content %}
+<style>
+body { background: #000 !important; }
+.stories-bar, .navbar { display: none !important; }
+
+.reels-page {
+    width: 100%;
+    height: 100vh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    background: #000;
+}
+
+.reel-card {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.reel-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.reel-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 20px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.reel-heart.liked { color: red; }
+</style>
+
+<div class="reels-page">
+{% for post in posts %}
+<div class="reel-card" data-post-id="{{ post.id }}">
+    <video class="reel-video" muted loop>
+        <source src="{{ post.video.url }}" type="video/mp4">
+    </video>
+
+    <div class="reel-actions">
+        <div class="js-like-btn" data-post-id="{{ post.id }}">
+            {% if post.id in liked_post_ids %}
+                ❤️
+            {% else %}
+                🤍
+            {% endif %}
+            <span class="js-like-count">{{ post.like_set.count }}</span>
+        </div>
+
+        <div class="js-comment-open" data-post-id="{{ post.id }}">
+            💬 <span>{{ post.comment_set.count }}</span>
+        </div>
+
+        <div class="js-save-btn" data-post-id="{{ post.id }}">
+            🔖
+        </div>
+
+        <div class="js-share-btn" data-post-id="{{ post.id }}">
+            ✉️
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+
+<script>
+const videos = document.querySelectorAll('.reel-video');
+
+function pauseAllVideos(){
+    videos.forEach(v=>v.pause());
+}
+
+const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+        const video = entry.target.querySelector('video');
+        if(entry.isIntersecting){
+            pauseAllVideos();
+            video.play();
+        } else {
+            video.pause();
+        }
+    });
+},{threshold:0.6});
+
+document.querySelectorAll('.reel-card').forEach(card=>{
+    observer.observe(card);
+});
+
+// DOUBLE TAP LIKE
+document.querySelectorAll('.reel-video').forEach(video=>{
+    let lastTap=0;
+    video.addEventListener('click',function(){
+        const now=new Date().getTime();
+        if(now-lastTap<300){
+            const card=this.closest('.reel-card');
+            card.querySelector('.js-like-btn').click();
+        }
+        lastTap=now;
+    });
+});
+
+// LIKE AJAX
+function getCookie(name){
+    let cookieValue=null;
+    if(document.cookie){
+        const cookies=document.cookie.split(';');
+        for(let i=0;i<cookies.length;i++){
+            const cookie=cookies[i].trim();
+            if(cookie.startsWith(name+'=')){
+                cookieValue=decodeURIComponent(cookie.substring(name.length+1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken=getCookie('csrftoken');
+
+document.querySelectorAll('.js-like-btn').forEach(btn=>{
+    btn.addEventListener('click',async function(){
+        const postId=this.dataset.postId;
+        const countEl=this.querySelector('.js-like-count');
+
+        const res=await fetch(`/like/${postId}/`,{
+            method:'POST',
+            headers:{'X-CSRFToken':csrftoken}
+        });
+
+        const data=await res.json();
+        if(data.success){
+            countEl.textContent=data.likes_count;
+            this.innerHTML=(data.liked?'❤️':'🤍')+' <span class="js-like-count">'+data.likes_count+'</span>';
+        }
+    });
+});
+
+// SAVE
+document.querySelectorAll('.js-save-btn').forEach(btn=>{
+    btn.addEventListener('click',async function(){
+        const postId=this.dataset.postId;
+        await fetch(`/save/${postId}/`,{
+            method:'POST',
+            headers:{'X-CSRFToken':csrftoken}
+        });
+        alert('Saved');
+    });
+});
+
+// SHARE
+document.querySelectorAll('.js-share-btn').forEach(btn=>{
+    btn.addEventListener('click',async function(){
+        const postId=this.dataset.postId;
+        const userId=prompt("ID пользователя:");
+
+        if(!userId) return;
+
+        await fetch('/send_post_dm/',{
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'X-CSRFToken':csrftoken
+            },
+            body:JSON.stringify({
+                post_id:postId,
+                users:[userId]
+            })
+        });
+
+        alert('Отправлено');
+    });
+});
+</script>
+{% endblock %}

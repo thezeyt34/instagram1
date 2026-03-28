@@ -1,0 +1,567 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+<style>
+    .post-detail-wrapper {
+        min-height: calc(100vh - 90px);
+        background: #fafafa;
+        padding: 30px 20px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .post-detail-card {
+        width: 100%;
+        max-width: 1100px;
+        background: #fff;
+        border: 1px solid #dbdbdb;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .post-media-side {
+        flex: 1.45;
+        min-height: 760px;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .post-media-side img,
+    .post-media-side video {
+        width: 100%;
+        height: 100%;
+        max-height: 760px;
+        object-fit: contain;
+        background: #000;
+        display: block;
+    }
+
+    .post-info-side {
+        width: 420px;
+        min-width: 420px;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        border-left: 1px solid #efefef;
+    }
+
+    .post-header {
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid #efefef;
+    }
+
+    .post-header-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .post-header-username {
+        font-size: 14px;
+        font-weight: 600;
+        color: #262626;
+        text-decoration: none;
+    }
+
+    .post-comments-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+    }
+
+    .post-caption {
+        font-size: 14px;
+        line-height: 1.45;
+        margin-bottom: 18px;
+        word-break: break-word;
+    }
+
+    .post-caption strong {
+        margin-right: 6px;
+    }
+
+    .comment-item {
+        font-size: 14px;
+        line-height: 1.45;
+        margin-bottom: 12px;
+        word-break: break-word;
+    }
+
+    .comment-item strong {
+        margin-right: 6px;
+    }
+
+    .post-empty-comments {
+        color: #8e8e8e;
+        font-size: 14px;
+    }
+
+    .post-footer {
+        border-top: 1px solid #efefef;
+        padding: 12px 16px 10px;
+    }
+
+    .post-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 24px;
+        margin-bottom: 12px;
+    }
+
+    .post-action-btn {
+        cursor: pointer;
+        user-select: none;
+        line-height: 1;
+    }
+
+    .post-action-btn:hover {
+        opacity: 0.75;
+    }
+
+    .post-like-btn.liked {
+        color: #ed4956;
+    }
+
+    .post-stats {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .post-date {
+        color: #8e8e8e;
+        font-size: 10px;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+    }
+
+    .post-comment-form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-top: 1px solid #efefef;
+        padding-top: 12px;
+    }
+
+    .post-comment-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 14px;
+        color: #262626;
+        background: transparent;
+    }
+
+    .post-comment-submit {
+        border: none;
+        background: none;
+        color: #0095f6;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .post-comment-submit:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
+    .dm-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .dm-modal.active {
+        display: flex;
+    }
+
+    .dm-box {
+        width: 100%;
+        max-width: 420px;
+        max-height: 80vh;
+        overflow: hidden;
+        background: #fff;
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dm-box-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid #efefef;
+        text-align: center;
+        font-weight: 700;
+        position: relative;
+    }
+
+    .dm-close {
+        position: absolute;
+        top: 10px;
+        right: 14px;
+        border: none;
+        background: none;
+        font-size: 22px;
+        cursor: pointer;
+    }
+
+    .dm-search {
+        margin: 14px 16px 10px;
+        padding: 10px 12px;
+        border: 1px solid #dbdbdb;
+        border-radius: 10px;
+        outline: none;
+        font-size: 14px;
+    }
+
+    .dm-users {
+        padding: 0 16px 10px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .dm-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        cursor: pointer;
+        border-bottom: 1px solid #f2f2f2;
+    }
+
+    .dm-user:last-child {
+        border-bottom: none;
+    }
+
+    .dm-send-btn {
+        margin: 12px 16px 16px;
+        padding: 11px 14px;
+        border: none;
+        border-radius: 10px;
+        background: #0095f6;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    @media (max-width: 980px) {
+        .post-detail-card {
+            flex-direction: column;
+        }
+
+        .post-media-side {
+            min-height: 420px;
+        }
+
+        .post-info-side {
+            width: 100%;
+            min-width: 0;
+            border-left: none;
+            border-top: 1px solid #efefef;
+        }
+    }
+</style>
+
+<div class="post-detail-wrapper">
+    <div class="post-detail-card">
+
+        <div class="post-media-side">
+            {% if post.image %}
+                <img src="{{ post.image.url }}" alt="{{ post.title }}">
+            {% elif post.video %}
+                <video controls autoplay muted loop playsinline>
+                    <source src="{{ post.video.url }}">
+                    Ваш браузер не поддерживает видео.
+                </video>
+            {% endif %}
+        </div>
+
+        <div class="post-info-side">
+            <div class="post-header">
+                <img
+                    src="{{ post.author.avatar.url }}"
+                    onerror="this.src='/media/avatar.jpg';"
+                    class="post-header-avatar"
+                    alt="{{ post.author.username }}"
+                >
+                <a href="{% url 'user_profile' post.author.username %}" class="post-header-username">
+                    {{ post.author.username }}
+                </a>
+            </div>
+
+            <div class="post-comments-area" id="comments-{{ post.id }}">
+                <div class="post-caption">
+                    <strong>{{ post.author.username }}</strong>
+                    {{ post.description }}
+                </div>
+
+                {% for comment in post.comment_set.all %}
+                    <div class="comment-item">
+                        <strong>{{ comment.user.username }}</strong>
+                        {{ comment.text }}
+                    </div>
+                {% empty %}
+                    <div class="post-empty-comments" id="empty-comments-text">
+                        Комментариев нет
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="post-footer">
+                <div class="post-actions">
+                    <span class="post-action-btn post-like-btn" id="likeBtn" data-post-id="{{ post.id }}">🤍</span>
+                    <span class="post-action-btn" id="dmOpenBtn">✈️</span>
+                    <span class="post-action-btn share-btn" data-post-id="{{ post.id }}">🔗</span>
+                </div>
+
+                <div class="post-stats">
+                    Просмотров: <span id="views-count-{{ post.id }}">{{ post.views }}</span>
+                </div>
+
+                <div class="post-date">
+                    {{ post.created_at|date:"d F" }}
+                </div>
+
+                <form class="post-comment-form" id="commentForm" data-post-id="{{ post.id }}">
+                    {% csrf_token %}
+                    <input
+                        type="text"
+                        name="text"
+                        id="commentInput"
+                        placeholder="Добавьте комментарий..."
+                        class="post-comment-input"
+                        required
+                    >
+                    <button type="submit" class="post-comment-submit">
+                        Опубликовать
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="dm-modal" id="dmModal">
+    <div class="dm-box">
+        <div class="dm-box-header">
+            Выберите пользователей
+            <button class="dm-close" id="dmCloseBtn">×</button>
+        </div>
+
+        <input type="text" id="dmSearch" class="dm-search" placeholder="Поиск...">
+
+        <div class="dm-users" id="dmUsers">
+            {% for u in user_followings %}
+                <label class="dm-user" data-uid="{{ u.id }}">
+                    <input type="checkbox">
+                    <span>{{ u.username }}</span>
+                </label>
+            {% empty %}
+                <div style="color:#8e8e8e; font-size:14px; padding:10px 0;">
+                    Нет пользователей для отправки
+                </div>
+            {% endfor %}
+        </div>
+
+        <button class="dm-send-btn" id="dmSendBtn">Отправить</button>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const postId = "{{ post.id }}";
+    const likeBtn = document.getElementById('likeBtn');
+    const commentForm = document.getElementById('commentForm');
+    const commentInput = document.getElementById('commentInput');
+    const commentsDiv = document.getElementById(`comments-${postId}`);
+    const shareBtn = document.querySelector('.share-btn');
+
+    const dmModal = document.getElementById('dmModal');
+    const dmOpenBtn = document.getElementById('dmOpenBtn');
+    const dmCloseBtn = document.getElementById('dmCloseBtn');
+    const dmSendBtn = document.getElementById('dmSendBtn');
+    const dmSearch = document.getElementById('dmSearch');
+    const dmUsersDiv = document.getElementById('dmUsers');
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    likeBtn.addEventListener('click', async function () {
+        try {
+            const response = await fetch(`/like/${postId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.liked) {
+                    likeBtn.textContent = '❤️';
+                    likeBtn.classList.add('liked');
+                } else {
+                    likeBtn.textContent = '🤍';
+                    likeBtn.classList.remove('liked');
+                }
+            }
+        } catch (error) {
+            console.log('Like error:', error);
+        }
+    });
+
+    commentForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const text = commentInput.value.trim();
+        if (!text) return;
+
+        try {
+            const response = await fetch(`/comment/${postId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ text: text })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const emptyText = document.getElementById('empty-comments-text');
+                if (emptyText) {
+                    emptyText.remove();
+                }
+
+                const newComment = document.createElement('div');
+                newComment.className = 'comment-item';
+                newComment.innerHTML = `<strong>${escapeHtml(data.username)}</strong> ${escapeHtml(data.text)}`;
+                commentsDiv.appendChild(newComment);
+
+                commentInput.value = '';
+                commentsDiv.scrollTop = commentsDiv.scrollHeight;
+            } else {
+                alert(data.error || 'Ошибка комментария');
+            }
+        } catch (error) {
+            console.log('Comment error:', error);
+        }
+    });
+
+    shareBtn.addEventListener('click', function () {
+        const postUrl = window.location.origin + "{% url 'post_detail' post.id %}";
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(postUrl).then(() => {
+                alert("Ссылка скопирована в буфер обмена!");
+            });
+        } else {
+            prompt("Скопируйте ссылку:", postUrl);
+        }
+    });
+
+    dmOpenBtn.addEventListener('click', function () {
+        dmModal.classList.add('active');
+    });
+
+    dmCloseBtn.addEventListener('click', function () {
+        dmModal.classList.remove('active');
+    });
+
+    dmModal.addEventListener('click', function (e) {
+        if (e.target === dmModal) {
+            dmModal.classList.remove('active');
+        }
+    });
+
+    dmSearch.addEventListener('input', function () {
+        const filter = this.value.toLowerCase();
+        dmUsersDiv.querySelectorAll('.dm-user').forEach(div => {
+            const uname = div.textContent.toLowerCase();
+            div.style.display = uname.includes(filter) ? 'flex' : 'none';
+        });
+    });
+
+    dmSendBtn.addEventListener('click', async function () {
+        const selectedUsers = Array.from(
+            dmUsersDiv.querySelectorAll('input[type=checkbox]:checked')
+        ).map(cb => cb.closest('.dm-user').dataset.uid);
+
+        if (selectedUsers.length === 0) {
+            alert("Выберите хотя бы одного пользователя!");
+            return;
+        }
+
+        try {
+            const response = await fetch("{% url 'send_post_dm' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    post_id: postId,
+                    users: selectedUsers
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert("Пост успешно отправлен!");
+                dmModal.classList.remove('active');
+                dmUsersDiv.querySelectorAll('input[type=checkbox]').forEach(cb => {
+                    cb.checked = false;
+                });
+            } else {
+                alert("Ошибка отправки");
+            }
+        } catch (error) {
+            console.log('DM send error:', error);
+        }
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+});
+</script>
+{% endblock %}

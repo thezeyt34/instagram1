@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная — Instagram{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; padding-top: 20px;">
+
+    {% if user.is_authenticated %}
+    <p style="color: #8e8e8e;">Добро пожаловать, <strong>{{ user.username }}</strong>!</p>
+    {% endif %}
+
+    {% if query %}
+    <div style="background: white; border: 1px solid #dbdbdb; border-radius: 8px; margin-bottom: 25px;">
+        <div style="padding: 14px; border-bottom: 1px solid #efefef; font-weight: 600;">
+            Результаты поиска
+        </div>
+
+        {% if users %}
+        {% for found_user in users %}
+        <div style="padding: 14px; display: flex; align-items: center; border-bottom: 1px solid #efefef;">
+            <img src="{{ found_user.avatar.url }}" onerror="this.src='/media/avatar.jpg';"
+                style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 10px;"
+                alt="{{ found_user.username }}">
+            <div>
+                <div style="font-weight: 600;">{{ found_user.username }}</div>
+                {% if found_user.bio %}
+                <div style="color: #8e8e8e; font-size: 14px;">{{ found_user.bio }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding: 14px; color: #8e8e8e;">
+            Пользователи не найдены.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <h2 style="font-weight: 600; margin-bottom: 20px;">Лента постов</h2>
+
+    {% for post in posts %}
+    <div style="background: white; border: 1px solid #dbdbdb; border-radius: 8px; margin-bottom: 40px;"
+        id="post-{{ post.id }}">
+
+        <div style="padding: 14px; display: flex; align-items: center; border-bottom: 1px solid #efefef;">
+            <a style="display: flex; align-items: center; gap: 10px; text-decoration: none;"
+                href="{% url 'user_profile' post.author.username %}">
+                <img src="{{ post.author.avatar.url }}" onerror="this.src='/media/avatar.jpg';"
+                    style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;"
+                    alt="{{ post.author.username }}">
+                <span style="font-weight: 600; color: #262626;">{{ post.author.username }}</span>
+            </a>
+        </div>
+
+        <div style="background-color: #fafafa; display: flex; justify-content: center;">
+            {% if post.image %}
+            <img src="{{ post.image.url }}" onerror="this.style.display='none';" style="max-width: 100%;"
+                alt="{{ post.title }}">
+            {% elif post.video %}
+            <video style="max-width: 100%;" controls>
+                <source src="{{ post.video.url }}">
+            </video>
+            {% endif %}
+        </div>
+
+        <div style="padding: 16px;">
+
+            <div style="margin-bottom: 8px;">
+                <a href="#" class="like-btn" data-post-id="{{ post.id }}" style="text-decoration:none;">
+                    <i class="bi bi-heart" style="font-size:24px; color:black;"></i>
+                </a>
+                <span class="like-count" id="like-count-{{ post.id }}" style="margin-left:10px; font-weight:500;">
+                    {{ post.like_set.count }}
+                </span>
+            </div>
+
+            <p style="margin: 0 0 5px 0;">
+                <strong>{{ post.author.username }}</strong>
+                {{ post.description|truncatechars:100 }}
+            </p>
+
+            <div class="comments" id="comments-{{ post.id }}" style="margin-top:10px;">
+                {% if post.comment_set.last %}
+                <div style="font-size:14px;">
+                    <b>{{ post.comment_set.last.user.username }}</b> {{ post.comment_set.last.text }}
+                </div>
+                {% else %}
+                <div class="empty-comments-text" style="color:#8e8e8e; font-size:14px;">
+                    Комментариев нет
+                </div>
+                {% endif %}
+            </div>
+
+            <form class="comment-form" data-post-id="{{ post.id }}" style="margin-top:10px; display:flex;">
+                {% csrf_token %}
+                <input type="text" name="text" placeholder="Добавить комментарий..."
+                    style="flex:1; border:none; border-bottom:1px solid #ccc; outline:none;">
+                <button type="submit" style="background:none; border:none; color:#0095f6;">Post</button>
+            </form>
+
+            <div style="color: #8e8e8e; font-size: 14px; margin-top: 8px;">
+                Просмотров: {{ post.views }}
+            </div>
+
+            <a href="{% url 'post_detail' post.id %}"
+                style="text-decoration: none; color: #0095f6; font-size: 14px; display: block; margin-top: 5px;">
+                Открыть подробнее...
+            </a>
+
+        </div>
+    </div>
+    {% empty %}
+    <div style="text-align: center; margin-top: 50px; color: #8e8e8e;">
+        <i class="bi bi-camera" style="font-size: 50px;"></i>
+        <p>Пока постов нет.</p>
+    </div>
+    {% endfor %}
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', async function (e) {
+                e.preventDefault();
+
+                const postId = this.dataset.postId;
+
+                try {
+                    const response = await fetch(`/like/${postId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const icon = btn.querySelector('i');
+
+                        if (data.liked) {
+                            icon.classList.remove('bi-heart');
+                            icon.classList.add('bi-heart-fill');
+                            icon.style.color = 'red';
+                        } else {
+                            icon.classList.remove('bi-heart-fill');
+                            icon.classList.add('bi-heart');
+                            icon.style.color = 'black';
+                        }
+
+                        document.getElementById(`like-count-${postId}`).innerText = data.likes_count;
+                    }
+                } catch (error) {
+                    console.log('Like error:', error);
+                }
+            });
+        });
+
+        document.querySelectorAll('.comment-form').forEach(form => {
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const postId = this.dataset.postId;
+                const textInput = this.querySelector('input[name="text"]');
+                const text = textInput.value.trim();
+
+                if (!text) return;
+
+                try {
+                    const response = await fetch(`/comment/${postId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ text: text })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const commentsDiv = document.getElementById(`comments-${postId}`);
+                        const emptyText = commentsDiv.querySelector('.empty-comments-text');
+
+                        if (emptyText) {
+                            emptyText.remove();
+                        }
+
+                        const newComment = document.createElement('div');
+                        newComment.style.fontSize = '14px';
+                        newComment.innerHTML = `<b>${escapeHtml(data.username)}</b> ${escapeHtml(data.text)}`;
+                        commentsDiv.prepend(newComment);
+
+                        textInput.value = '';
+                    } else {
+                        alert(data.error || 'Ошибка комментария');
+                    }
+                } catch (error) {
+                    console.log('Comment error:', error);
+                }
+            });
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    });
+</script>
+{% endblock %}
